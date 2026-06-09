@@ -1,12 +1,12 @@
-import OpenAI from "openai";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+      return res.status(405).end();
     }
 
-    // Vercel-safe body parsing
     const body =
       typeof req.body === "string"
         ? JSON.parse(req.body)
@@ -14,23 +14,22 @@ export default async function handler(req, res) {
 
     const messages = body?.messages;
 
-    if (!messages) {
-      return res.status(400).json({ error: "Missing messages" });
-    }
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // 👈 najjeftiniji stabilan model za testiranje
+    const result = streamText({
+      model: openai("gpt-4o-mini"),
       messages,
     });
 
-    return res.status(200).json({
-      message: completion.choices[0].message.content,
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
     });
 
+    for await (const textPart of result.textStream) {
+      res.write(textPart);
+    }
+
+    res.end();
   } catch (error) {
     console.error(error);
 

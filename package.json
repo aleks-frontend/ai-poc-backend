@@ -19,6 +19,8 @@
   },
   "homepage": "https://github.com/aleks-frontend/ai-poc-backend#readme",
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.68",
+    "ai": "^6.0.198",
     "openai": "^6.42.0"
   }
 }
