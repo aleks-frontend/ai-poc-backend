@@ -1,5 +1,10 @@
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import {
+  TRUSTVIEW_CONTEXT,
+  TRUSTVIEW_GUARDRAILS,
+  TRUSTVIEW_SYSTEM_PROMPT,
+} from "./prompts.js";
 
 export default async function handler(req, res) {
   try {
@@ -16,6 +21,13 @@ export default async function handler(req, res) {
 
     const result = streamText({
       model: openai("gpt-4o-mini"),
+      system: `
+${TRUSTVIEW_SYSTEM_PROMPT}
+
+${TRUSTVIEW_CONTEXT}
+
+${TRUSTVIEW_GUARDRAILS}
+`,
       messages,
     });
 
