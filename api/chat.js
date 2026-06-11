@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { convertToModelMessages, streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import {
   TRUSTVIEW_CONTEXT,
@@ -10,6 +10,28 @@ const ALLOWED_ORIGINS = [
   "https://nightly.app.trustview.eu",
   "http://localhost:3000",
 ];
+
+function logIncomingUserParts(messages) {
+  const lastUserMessage = [...(messages ?? [])]
+    .reverse()
+    .find((message) => message.role === "user");
+
+  if (!lastUserMessage?.parts?.length) {
+    console.log("Incoming user message: no parts array on last user message");
+    return;
+  }
+
+  console.log(
+    "Incoming user message parts:",
+    lastUserMessage.parts.map((part) => ({
+      type: part.type,
+      mediaType: part.mediaType,
+      hasUrl: Boolean(part.url),
+      urlPrefix: typeof part.url === "string" ? part.url.slice(0, 40) : undefined,
+      textLength: part.text?.length,
+    })),
+  );
+}
 
 export default async function handler(req, res) {
   try {
@@ -35,6 +57,12 @@ export default async function handler(req, res) {
 
     const messages = body?.messages;
 
+    if (!messages?.length) {
+      return res.status(400).json({ error: "Missing messages" });
+    }
+
+    logIncomingUserParts(messages);
+
     const result = streamText({
       model: openai("gpt-4o-mini"),
       system: `
@@ -44,20 +72,10 @@ ${TRUSTVIEW_CONTEXT}
 
 ${TRUSTVIEW_GUARDRAILS}
 `,
-      messages,
+      messages: await convertToModelMessages(messages),
     });
 
-    res.writeHead(200, {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
-
-    for await (const textPart of result.textStream) {
-      res.write(textPart);
-    }
-
-    res.end();
+    result.pipeUIMessageStreamToResponse(res);
   } catch (error) {
     console.error(error);
 
